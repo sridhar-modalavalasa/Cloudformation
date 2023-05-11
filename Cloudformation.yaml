@@ -1,0 +1,105 @@
+Parameters:
+   instancetype:
+     Type: String
+     Default: t2.micro
+     Description: Enter the ec2 instance type
+   keypair:
+     Type: String
+     Description: Enter the keypair for instance
+   AMI:
+     Type: String
+     Default: ami-05afd67c4a44cc983
+     Description: Enter the ec2 instance AMI id
+
+Resources:
+   VPC:
+     Type: AWS::EC2::VPC
+     Properties:
+       CidrBlock: 10.0.0.0/16
+       EnableDnsSupport: 'true'
+       EnableDnsHostnames: 'true'
+       Tags:
+        - Key: Name
+          Value: myvpc
+   myInternetGateway:
+     Type: AWS::EC2::InternetGateway
+     Properties:
+       Tags:
+       - Key: Name
+         Value: myIGW
+   AttachGateway:
+     Type: AWS::EC2::VPCGatewayAttachment
+     Properties:
+       VpcId:
+          Ref: VPC
+       InternetGatewayId:
+          Ref: myInternetGateway
+
+   mySubnet:
+     Type: AWS::EC2::Subnet
+     Properties:
+       VpcId:
+         Ref: VPC
+       CidrBlock: 10.0.0.0/24
+       AvailabilityZone: !Select [ 0, !GetAZs ]
+       Tags:
+       - Key: Name
+         Value: mysubnet1
+   myRouteTable:
+     Type: AWS::EC2::RouteTable
+     Properties:
+       VpcId:  
+         Ref: VPC
+       Tags:
+       - Key: Name
+         Value: My route table
+   myRoute:
+     Type: AWS::EC2::Route
+     DependsOn: myInternetGateway
+     Properties:
+        RouteTableId:
+          Ref: myRouteTable
+        DestinationCidrBlock: 0.0.0.0/0
+        GatewayId:
+          Ref: myInternetGateway
+   mySubnetRouteTableAssociation:
+     Type: AWS::EC2::SubnetRouteTableAssociation
+     Properties:
+       SubnetId:
+         Ref: mySubnet
+       RouteTableId:
+         Ref: myRouteTable
+   MyEC2Instance1:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      ImageId: !Ref AMI
+      InstanceType: !Ref instancetype
+      AvailabilityZone : ap-south-1a
+      SecurityGroupIds:
+      - Ref : InstanceSecurityGroup
+      SubnetId: !Ref mySubnet
+      Tags:
+      - Key: Name
+        Value: MyEc2
+   myEIP:
+     Type: AWS::EC2::EIP
+     Properties:
+       InstanceId: !Ref MyEC2Instance1
+   InstanceSecurityGroup:
+     Type: AWS::EC2::SecurityGroup
+     Properties:
+       GroupDescription: Allow http to client host
+       VpcId: !Ref VPC
+       SecurityGroupIngress:
+         - IpProtocol: tcp
+           FromPort: 80
+           ToPort: 80
+           CidrIp: 0.0.0.0/0
+       SecurityGroupEgress:
+         - IpProtocol: -1
+           FromPort: 80
+           ToPort: 80
+           CidrIp: 0.0.0.0/0
+       Tags:
+       - Key: Name
+         Value: MyEc2
